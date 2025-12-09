@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Giao Diện Điều Khiển Không Chạm AI 3D</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
+  
+  :root {
+    --neon-blue: #00f3ff;
+    --neon-pink: #ff006e;
+    --neon-purple: #8b00ff;
+    --neon-green: #39ff14;
+    --dark-bg: #0a0a0f;
+    --panel-bg: rgba(15, 15, 25, 0.95);
+    --panel-border: rgba(0, 243, 255, 0.3);
+  }
+  
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+  
+  body, html {
+    height: 100%;
+    font-family: 'Orbitron', sans-serif;
+    background: var(--dark-bg);
+    color: var(--neon-blue);
+    overflow: hidden;
+  }
+  
+  #app {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  /* Header */
+  header {
+    background: linear-gradient(135deg, rgba(139, 0, 255, 0.2), rgba(255, 0, 110, 0.2));
+    backdrop-filter: blur(10px);
+    padding: 1rem 2rem;
+    border-bottom: 2px solid var(--neon-blue);
+    box-shadow: 0 0 20px rgba(0, 243, 255, 0.3);
+    z-index: 100;
+  }
+  
+  header h1 {
+    font-size: 1.8rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    background: linear-gradient(90deg, var(--neon-blue), var(--neon-pink));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-shadow: 0 0 30px rgba(0, 243, 255, 0.5);
+    letter-spacing: 3px;
+  }
+  
+  /* Canvas Container */
+  #canvasContainer {
+    flex: 1;
+    position: relative;
+    background: radial-gradient(circle at 50% 50%, #0f0f1a, #000000);
+  }
+  
+  #canvas3d {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+  
+  /* Video Preview */
+  #videoPreview {
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    width: 240px;
+    height: 180px;
+    border: 3px solid var(--neon-blue);
+    border-radius: 12px;
+    background: #000;
+    box-shadow: 0 0 30px rgba(0, 243, 255, 0.6);
+    overflow: hidden;
+    z-index: 50;
+  }
+  
+  #videoElement {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transform: scaleX(-1);
+  }
+  
+  #canvasOverlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+  }
+  
+  /* Control Panel */
+  #controlPanel {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: var(--panel-bg);
+    border: 2px solid var(--panel-border);
+    border-radius: 16px;
+    padding: 1.5rem;
+    width: 320px;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 0 40px rgba(0, 243, 255, 0.4);
+    z-index: 50;
+  }
+  
+  .control-section {
+    margin-bottom: 1.5rem;
+  }
+  
+  .control-section h3 {
+    font-size: 1rem;
+    color: var(--neon-pink);
+    margin-bottom: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    text-shadow: 0 0 10px var(--neon-pink);
+  }
+  
+  .color-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+  }
+  
+  .color-btn {
+    width: 100%;
+    aspect-ratio: 1;
+    border: 2px solid transparent;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s;
+    position: relative;
+  }
+  
+  .color-btn:hover {
+    transform: scale(1.15);
+    box-shadow: 0 0 20px currentColor;
+  }
+  
+  .color-btn.active {
+    border-color: #fff;
+    box-shadow: 0 0 25px currentColor;
+    transform: scale(1.2);
+  }
+  
+  .gesture-status {
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid var(--neon-green);
+    border-radius: 10px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+  }
+  
+  .status-item {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+    font-size: 0.85rem;
+  }
+  
+  .status-label {
+    color: var(--neon-blue);
+  }
+  
+  .status-value {
+    color: var(--neon-green);
+    font-weight: bold;
+  }
+  
+  .indicator {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-left: 8px;
+    background: #333;
+  }
+  
+  .indicator.active {
+    background: var(--neon-green);
+    box-shadow: 0 0 10px var(--neon-green);
+    animation: pulse 1s infinite;
+  }
+  
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+  
+  /* Instructions */
+  #instructions {
+    position: absolute;
+    bottom: 1rem;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--panel-bg);
+    border: 2px solid var(--panel-border);
+    border-radius: 16px;
+    padding: 1.5rem 2rem;
+    backdrop-filter: blur(10px);
+    max-width: 600px;
+    box-shadow: 0 0 40px rgba(0, 243, 255, 0.4);
+    z-index: 50;
+  }
+  
+  #instructions h3 {
+    color: var(--neon-purple);
+    margin-bottom: 1rem;
+    font-size: 1.1rem;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    text-shadow: 0 0 10px var(--neon-purple);
+  }
+  
+  .instruction-list {
+    list-style: none;
+    font-size: 0.9rem;
+    line-height: 1.8;
+  }
+  
+  .instruction-list li {
+    padding-left: 1.5rem;
+    position: relative;
+    color: #fff;
+  }
+  
+  .instruction-list li:before {
+    content: "▶";
+    position: absolute;
+    left: 0;
+    color: var(--neon-green);
+  }
+  
+  /* FPS Counter */
+  #fpsCounter {
+    position: absolute;
+    top: 1rem;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.8);
+    border: 2px solid var(--neon-green);
+    border-radius: 8px;
+    padding: 0.5rem 1.5rem;
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: var(--neon-green);
+    text-shadow: 0 0 10px var(--neon-green);
+    z-index: 60;
+  }
+  
+  /* Responsive */
+  @media (max-width: 768px) {
+    #controlPanel {
+      width: 90%;
+      left: 50%;
+      right: auto;
+      transform: translateX(-50%);
+      top: auto;
+      bottom: 1rem;
+    }
+    
+    #videoPreview {
+      width: 160px;
+      height: 120px;
+    }
+    
+    #instructions {
+      display: none;
+    }
+  }
+  
+  /* Loading Animation */
+  .loading {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 1.5rem;
+    color: var(--neon-blue);
+    text-shadow: 0 0 20px var(--neon-blue);
+    z-index: 1000;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>🤖 AI Touchless Interface 3D</h1>
+  </header>
+  
+  <div id="canvasContainer">
+    <canvas id="canvas3d"></canvas>
+    
+    <!-- FPS Counter -->
+    <div id="fpsCounter">FPS: 60</div>
+    
+    <!-- Video Preview with Hand Tracking -->
+    <div id="videoPreview">
+      <video id="videoElement" autoplay playsinline></video>
+      <canvas id="canvasOverlay"></canvas>
+    </div>
+    
+    <!-- Control Panel -->
+    <div id="controlPanel">
+      <div class="gesture-status">
+        <div class="status-item">
+          <span class="status-label">🖐️ Bàn tay phát hiện:</span>
+          <span class="status-value"><span id="handCount">0</span><span class="indicator" id="handIndicator"></span></span>
+        </div>
+        <div class="status-item">
+          <span class="status-label">📏 Khoảng cách:</span>
+          <span class="status-value" id="distanceValue">--</span>
+        </div>
+        <div class="status-item">
+          <span class="status-label">🎯 Trạng thái:</span>
+          <span class="status-value" id="gestureState">Chờ cử chỉ</span>
+        </div>
+      </div>
+      
+      <div class="control-section">
+        <h3>🎨 Bảng màu tương tác</h3>
+        <div class="color-grid" id="colorGrid"></div>
+      </div>
+      
+      <div class="control-section">
+        <h3>⚙️ Hiệu ứng</h3>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+          <button class="effect-btn" data-effect="rotate" style="flex: 1; padding: 0.7rem; background: linear-gradient(135deg, #667eea, #764ba2); border: none; border-radius: 8px; color: #fff; font-weight: bold; cursor: pointer; font-family: 'Orbitron', sans-serif;">🔄 Xoay</button>
+          <button class="effect-btn" data-effect="pulse" style="flex: 1; padding: 0.7rem; background: linear-gradient(135deg, #f093fb, #f5576c); border: none; border-radius: 8px; color: #fff; font-weight: bold; cursor: pointer; font-family: 'Orbitron', sans-serif;">💓 Nhịp</button>
+          <button class="effect-btn active" data-effect="wave" style="flex: 1; padding: 0.7rem; background: linear-gradient(135deg, #4facfe, #00f2fe); border: none; border-radius: 8px; color: #fff; font-weight: bold; cursor: pointer; font-family: 'Orbitron', sans-serif;">🌊 Sóng</button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Instructions -->
+    <div id="instructions">
+      <h3>📋 Hướng dẫn điều khiển không chạm</h3>
+      <ul class="instruction-list">
+        <li><strong>Mở rộng hai tay</strong> → Hạt phân tán ra không gian 3D</li>
+        <li><strong>Khép hai tay lại</strong> → Hạt co lại thành hình cầu hoàn hảo</li>
+        <li><strong>Giơ ngón trỏ</strong> → Chọn màu từ bảng màu (AI tự động)</li>
+        <li><strong>Vẫy tay</strong> → Kích hoạt hiệu ứng đặc biệt</li>
+        <li>Tất cả real-time, không cần chạm!</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="loading" id="loading">⚡ Đang khởi động AI...</div>
+
+<!-- Three.js -->
+<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
+<!-- MediaPipe Hands -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+
+<script>
+(() => {
+  // ============ THREE.JS SETUP ============
+  const canvas = document.getElementById('canvas3d');
+  const renderer = new THREE.WebGLRenderer({ 
+    canvas, 
+    antialias: false,
+    alpha: false,
+    powerPreference: "high-performance",
+    stencil: false,
+    depth: true
+  });
+  renderer.setClearColor(0x000000);
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setPixelRatio(1);
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 1000);
+  camera.position.z = 50;
+
+  // Particle System - Tối ưu cho 60 FPS
+  const PARTICLE_COUNT = 120;
+  const SPHERE_RADIUS = 12;
+  
+  const particleGeometry = new THREE.SphereGeometry(0.25, 4, 4);
+  const particleMaterial = new THREE.MeshStandardMaterial({ 
+    color: 0x00f3ff,
+    emissive: 0x00f3ff,
+    emissiveIntensity: 0.5,
+    roughness: 0.3,
+    metalness: 0.7
+  });
+  
+  const instancedMesh = new THREE.InstancedMesh(particleGeometry, particleMaterial, PARTICLE_COUNT);
+  scene.add(instancedMesh);
+
+  // Lighting
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+  scene.add(ambientLight);
+  const pointLight1 = new THREE.PointLight(0x00f3ff, 1, 100);
+  pointLight1.position.set(20, 20, 20);
+  scene.add(pointLight1);
+  const pointLight2 = new THREE.PointLight(0xff006e, 1, 100);
+  pointLight2.position.set(-20, -20, 20);
+  scene.add(pointLight2);
+
+  // Particle positions
+  const spherePositions = [];
+  const expandedPositions = [];
+  const dummy = new THREE.Object3D();
+  let currentScale = 1;
+  let targetScale = 1;
+
+  // Generate Fibonacci Sphere
+  function generateSpherePositions(count, radius) {
+    const positions = [];
+    const offset = 2 / count;
+    const increment = Math.PI * (3 - Math.sqrt(5));
+    for(let i=0; i<count; i++) {
+      const y = i * offset - 1 + (offset / 2);
+      const r = Math.sqrt(1 - y*y);
+      const phi = i * increment;
+      positions.push(new THREE.Vector3(
+        Math.cos(phi) * r * radius,
+        y * radius,
+        Math.sin(phi) * r * radius
+      ));
+    }
+    return positions;
+  }
+
+  // Initialize particles
+  function initParticles() {
+    const spherePos = generateSpherePositions(PARTICLE_COUNT, SPHERE_RADIUS);
+    for(let i=0; i<PARTICLE_COUNT; i++) {
+      spherePositions.push(spherePos[i].clone());
+      expandedPositions.push(new THREE.Vector3(
+        (Math.random() - 0.5) * SPHERE_RADIUS * 4,
+        (Math.random() - 0.5) * SPHERE_RADIUS * 4,
+        (Math.random() - 0.5) * SPHERE_RADIUS * 4
+      ));
+      dummy.position.copy(expandedPositions[i]);
+      dummy.updateMatrix();
+      instancedMesh.setMatrixAt(i, dummy.matrix);
+    }
+    instancedMesh.instanceMatrix.needsUpdate = true;
+  }
+  initParticles();
+
+  // ============ COLOR PALETTE ============
+  const colors = [
+    '#00f3ff', '#ff006e', '#8b00ff', '#39ff14', '#ffff00',
+    '#ff6b35', '#00ffff', '#ff00ff', '#00ff88', '#ff4444'
+  ];
+  
+  const colorGrid = document.getElementById('colorGrid');
+  colors.forEach((color, index) => {
+    const btn = document.createElement('div');
+    btn.className = 'color-btn';
+    btn.style.background = color;
+    btn.dataset.color = color;
+    if(index === 0) btn.classList.add('active');
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      changeParticleColor(color);
+    });
+    colorGrid.appendChild(btn);
+  });
+
+  function changeParticleColor(color) {
+    const threeColor = new THREE.Color(color);
+    particleMaterial.color.copy(threeColor);
+    particleMaterial.emissive.copy(threeColor);
+  }
+
+  // ============ EFFECTS ============
+  let currentEffect = 'wave';
+  document.querySelectorAll('.effect-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.effect-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentEffect = btn.dataset.effect;
+    });
+  });
+
+  // ============ MEDIAPIPE HANDS ============
+  const videoElement = document.getElementById('videoElement');
+  const canvasOverlay = document.getElementById('canvasOverlay');
+  const canvasCtx = canvasOverlay.getContext('2d');
+  
+  let lastDistance = null;
+  let smoothingFactor = 0.2;
+  let isProcessing = false;
+  let detectedHands = 0;
+  let currentColorIndex = 0;
+  let lastGestureTime = 0;
+  
+  // Tracking vẫy tay
+  let handYHistory = [];
+  const HISTORY_SIZE = 10;
+  let waveDetectCooldown = 0;
+
+  const hands = new Hands({
+    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+  });
+  
+  hands.setOptions({
+    maxNumHands: 2,
+    modelComplexity: 0,
+    minDetectionConfidence: 0.5,
+    minTrackingConfidence: 0.5,
+    selfieMode: true
+  });
+
+  // Hàm kiểm tra ngón tay có đang duỗi không
+  function isFingerExtended(landmarks, fingerTip, fingerPip) {
+    return landmarks[fingerTip].y < landmarks[fingerPip].y;
+  }
+  
+  // Hàm phát hiện cử chỉ giơ ngón trỏ
+  function detectPointingGesture(landmarks) {
+    const indexExtended = isFingerExtended(landmarks, 8, 6);
+    const middleFolded = !isFingerExtended(landmarks, 12, 10);
+    const ringFolded = !isFingerExtended(landmarks, 16, 14);
+    const pinkyFolded = !isFingerExtended(landmarks, 20, 18);
+    return indexExtended && middleFolded && ringFolded && pinkyFolded;
+  }
+  
+  // Hàm phát hiện vẫy tay (improved)
+  function detectWaveGesture(landmarks) {
+    const wristY = landmarks[0].y;
+    
+    // Thêm vào lịch sử
+    handYHistory.push(wristY);
+    if(handYHistory.length > HISTORY_SIZE) {
+      handYHistory.shift();
+    }
+    
+    // Cần ít nhất 8 frame để phát hiện
+    if(handYHistory.length < 8 || waveDetectCooldown > 0) {
+      waveDetectCooldown = Math.max(0, waveDetectCooldown - 1);
+      return false;
+    }
+    
+    // Đếm số lần thay đổi hướng (lên/xuống)
+    let directionChanges = 0;
+    let lastDirection = 0;
+    
+    for(let i = 1; i < handYHistory.length; i++) {
+      const diff = handYHistory[i] - handYHistory[i-1];
+      if(Math.abs(diff) > 0.02) { // Ngưỡng chuyển động
+        const currentDirection = diff > 0 ? 1 : -1;
+        if(lastDirection !== 0 && currentDirection !== lastDirection) {
+          directionChanges++;
+        }
+        lastDirection = currentDirection;
+      }
+    }
+    
+    // Nếu có >= 3 lần đổi hướng = vẫy tay
+    if(directionChanges >= 3) {
+      handYHistory = [];
+      waveDetectCooldown = 15; // Cooldown 15 frames
+      return true;
+    }
+    
+    return false;
+  }
+
+  hands.onResults(onHandsResults);
+
+  function onHandsResults(results) {
+    // Clear overlay
+    canvasOverlay.width = videoElement.videoWidth;
+    canvasOverlay.height = videoElement.videoHeight;
+    canvasCtx.clearRect(0, 0, canvasOverlay.width, canvasOverlay.height);
+    
+    detectedHands = results.multiHandLandmarks ? results.multiHandLandmarks.length : 0;
+    
+    // Update UI
+    document.getElementById('handCount').textContent = detectedHands;
+    const indicator = document.getElementById('handIndicator');
+    if(detectedHands > 0) {
+      indicator.classList.add('active');
+    } else {
+      indicator.classList.remove('active');
+    }
+
+    // Draw hands
+    if(results.multiHandLandmarks) {
+      for(const landmarks of results.multiHandLandmarks) {
+        drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {color: '#00f3ff', lineWidth: 2});
+        drawLandmarks(canvasCtx, landmarks, {color: '#ff006e', lineWidth: 1, radius: 3});
+      }
+    }
+
+    // Gesture recognition
+    if(results.multiHandLandmarks && results.multiHandLandmarks.length === 2) {
+      const hand1 = results.multiHandLandmarks[0];
+      const hand2 = results.multiHandLandmarks[1];
+      
+      const wrist1 = hand1[0];
+      const wrist2 = hand2[0];
+      
+      const dx = wrist1.x - wrist2.x;
+      const dy = wrist1.y - wrist2.y;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+
+      if(lastDistance === null) lastDistance = dist;
+      const smoothDist = lastDistance + (dist - lastDistance) * smoothingFactor;
+      lastDistance = smoothDist;
+
+      // FIX: Map to scale - khoảng cách nhỏ = hình cầu (0), khoảng cách lớn = phân tán (1)
+      let scale = (smoothDist - 0.15) / (0.65 - 0.15);
+      scale = Math.min(Math.max(scale, 0), 1);
+      targetScale = scale; // 0 = cầu, 1 = phân tán
+
+      // Update UI
+      document.getElementById('distanceValue').textContent = (smoothDist * 100).toFixed(0) + '%';
+      document.getElementById('gestureState').textContent = scale < 0.3 ? '🔵 Hình cầu' : (scale > 0.7 ? '🌟 Phân tán' : '⚡ Trung gian');
+    } else if(results.multiHandLandmarks && results.multiHandLandmarks.length === 1) {
+      // Chỉ 1 tay - kiểm tra cử chỉ
+      const hand = results.multiHandLandmarks[0];
+      const currentTime = Date.now();
+      
+      // Phát hiện giơ ngón trỏ để đổi màu
+      if(detectPointingGesture(hand) && currentTime - lastGestureTime > 1000) {
+        lastGestureTime = currentTime;
+        currentColorIndex = (currentColorIndex + 1) % colors.length;
+        changeParticleColor(colors[currentColorIndex]);
+        // Update active color button
+        document.querySelectorAll('.color-btn').forEach((btn, idx) => {
+          btn.classList.toggle('active', idx === currentColorIndex);
+        });
+        document.getElementById('gestureState').textContent = '👆 Đổi màu!';
+        handYHistory = []; // Reset wave detection
+      }
+      // Phát hiện vẫy tay để đổi hiệu ứng
+      else if(detectWaveGesture(hand) && currentTime - lastGestureTime > 800) {
+        lastGestureTime = currentTime;
+        const effects = ['rotate', 'pulse', 'wave'];
+        const currentIdx = effects.indexOf(currentEffect);
+        const nextIdx = (currentIdx + 1) % effects.length;
+        currentEffect = effects[nextIdx];
+        // Update active effect button
+        document.querySelectorAll('.effect-btn').forEach(btn => {
+          btn.classList.toggle('active', btn.dataset.effect === currentEffect);
+        });
+        document.getElementById('gestureState').textContent = '👋 Đổi hiệu ứng: ' + currentEffect.toUpperCase();
+        
+        // Visual feedback
+        setTimeout(() => {
+          if(detectedHands === 1) {
+            document.getElementById('gestureState').textContent = '🖐️ 1 tay';
+          }
+        }, 1500);
+      } else if(!detectPointingGesture(hand)) {
+        document.getElementById('gestureState').textContent = '🖐️ Vẫy tay lên xuống';
+      }
+      
+      targetScale += (0.5 - targetScale) * 0.05;
+      document.getElementById('distanceValue').textContent = '--';
+    } else {
+      targetScale += (0.5 - targetScale) * 0.05;
+      document.getElementById('distanceValue').textContent = '--';
+      document.getElementById('gestureState').textContent = 'Chờ cử chỉ';
+      handYHistory = [];
+      waveDetectCooldown = 0;
+    }
+  }
+
+  // Camera setup - Tối ưu cho 60 FPS
+  let frameCount = 0;
+  const cameraUtils = new Camera(videoElement, {
+    onFrame: async () => {
+      frameCount++;
+      // Xử lý mỗi 3 frame để giảm tải CPU
+      if (frameCount % 3 === 0 && !isProcessing) {
+        isProcessing = true;
+        try {
+          await hands.send({image: videoElement});
+        } finally {
+          isProcessing = false;
+        }
+      }
+    },
+    width: 320,
+    height: 240
+  });
+  
+  cameraUtils.start().then(() => {
+    document.getElementById('loading').style.display = 'none';
+  });
+
+  // ============ ANIMATION ============
+  const tempPosition = new THREE.Vector3();
+  
+  function animateParticles() {
+    // FIX: t=0 là cầu, t=1 là phân tán
+    const t = Math.min(Math.max(currentScale, 0), 1);
+    const t_inv = 1 - t;
+    const time = Date.now() * 0.001;
+    
+    for(let i=0; i<PARTICLE_COUNT; i++) {
+      const sp = spherePositions[i];
+      const ep = expandedPositions[i];
+      
+      // Base position: sphere when t=0, expanded when t=1
+      tempPosition.x = sp.x * t_inv + ep.x * t;
+      tempPosition.y = sp.y * t_inv + ep.y * t;
+      tempPosition.z = sp.z * t_inv + ep.z * t;
+      
+      // Apply effects
+      if(currentEffect === 'wave') {
+        const waveOffset = Math.sin(time * 2 + i * 0.1) * 0.5;
+        tempPosition.y += waveOffset;
+      } else if(currentEffect === 'pulse') {
+        const pulseScale = 1 + Math.sin(time * 3 + i * 0.05) * 0.1;
+        tempPosition.multiplyScalar(pulseScale);
+      }
+      
+      dummy.position.copy(tempPosition);
+      dummy.updateMatrix();
+      instancedMesh.setMatrixAt(i, dummy.matrix);
+    }
+    instancedMesh.instanceMatrix.needsUpdate = true;
+  }
+
+  // FPS Counter
+  let lastTime = performance.now();
+  let frames = 0;
+  let fps = 60;
+
+  function updateFPS() {
+    frames++;
+    const currentTime = performance.now();
+    if (currentTime >= lastTime + 1000) {
+      fps = Math.round((frames * 1000) / (currentTime - lastTime));
+      document.getElementById('fpsCounter').textContent = `FPS: ${fps}`;
+      frames = 0;
+      lastTime = currentTime;
+    }
+  }
+
+  // Main animation loop
+  let rotationY = 0;
+  let rotationX = 0;
+  
+  function animate() {
+    requestAnimationFrame(animate);
+
+    // Tăng smoothing để mượt hơn
+    currentScale += (targetScale - currentScale) * 0.15;
+    animateParticles();
+
+    if(currentEffect === 'rotate' || currentEffect === 'wave') {
+      rotationY += 0.003;
+      rotationX += 0.0015;
+      instancedMesh.rotation.y = rotationY;
+      instancedMesh.rotation.x = rotationX;
+    } else {
+      instancedMesh.rotation.y += (0 - instancedMesh.rotation.y) * 0.05;
+      instancedMesh.rotation.x += (0 - instancedMesh.rotation.x) * 0.05;
+    }
+
+    renderer.render(scene, camera);
+    updateFPS();
+  }
+  animate();
+
+  // Resize handler
+  window.addEventListener('resize', () => {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    renderer.setSize(w, h);
+    camera.aspect = w/h;
+    camera.updateProjectionMatrix();
+  });
+})();
+</script>
+</body>
+</html>
